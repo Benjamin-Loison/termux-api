@@ -62,6 +62,8 @@ public class AccessibilityAPI {
 				click(intent.getIntExtra("x", 0), intent.getIntExtra("y", 0));
 			} else if (intent.hasExtra("type")) {
 				type(intent.getStringExtra("type"));
+			} else if (intent.hasExtra("global-action")) {
+                performGlobalAction(intent.getStringExtra("global-action"));
 			}
 		});
 	}
@@ -179,5 +181,9 @@ public class AccessibilityAPI {
         Bundle arguments = new Bundle();
         arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, toType);
         focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+	}
+
+	private static void performGlobalAction(String globalAction) throws NoSuchFieldException, IllegalAccessException {
+		TermuxAccessibilityService.instance.performGlobalAction((int)AccessibilityService.class.getDeclaredField("GLOBAL_ACTION_" + globalAction).get(null));
 	}
 }
