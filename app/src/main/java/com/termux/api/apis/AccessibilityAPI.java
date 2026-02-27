@@ -31,12 +31,27 @@ import android.graphics.Rect;
 
 import android.content.ContentResolver;
 
+import android.provider.Settings;
+
+import android.view.accessibility.AccessibilityManager;
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.content.pm.ServiceInfo;
+import java.util.List;
+import android.accessibilityservice.AccessibilityService;
+
 public class AccessibilityAPI {
 
     private static final String LOG_TAG = "AccessibilityAPI";
 
     public static void onReceive(TermuxApiReceiver apiReceiver, final Context context, Intent intent) {
         Logger.logDebug(LOG_TAG, "onReceive");
+
+		boolean isAccessibilityEnabled = isAccessibilityServiceEnabled(context, TermuxAccessibilityService.class);
+		if (!isAccessibilityEnabled) {
+			Intent accessibilityIntent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+			accessibilityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+			context.startActivity(accessibilityIntent);
+		}
 
 		ResultReturner.returnData(apiReceiver, intent, out -> {
 			final ContentResolver contentResolver = context.getContentResolver();
@@ -47,6 +62,20 @@ public class AccessibilityAPI {
 				click(intent.getIntExtra("x", 0), intent.getIntExtra("y", 0));
 			}
 		});
+	}
+
+	// [The Stack Overflow answer 14923144](https://stackoverflow.com/a/14923144)
+	public static boolean isAccessibilityServiceEnabled(Context context, Class<? extends AccessibilityService> service) {
+		AccessibilityManager am = (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+		List<AccessibilityServiceInfo> enabledServices = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+
+		for (AccessibilityServiceInfo enabledService : enabledServices) {
+			ServiceInfo enabledServiceInfo = enabledService.getResolveInfo().serviceInfo;
+			if (enabledServiceInfo.packageName.equals(context.getPackageName()) && enabledServiceInfo.name.equals(service.getName()))
+				return true;
+		}
+
+		return false;
 	}
 
 	private static void click(int x, int y) {
