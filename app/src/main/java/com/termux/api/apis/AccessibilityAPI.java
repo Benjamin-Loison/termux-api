@@ -38,6 +38,7 @@ import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.pm.ServiceInfo;
 import java.util.List;
 import android.accessibilityservice.AccessibilityService;
+import android.os.Bundle;
 
 public class AccessibilityAPI {
 
@@ -57,9 +58,10 @@ public class AccessibilityAPI {
 			final ContentResolver contentResolver = context.getContentResolver();
 			if (intent.hasExtra("dump")) {
 				out.print(dump());
-			}
-			else if (intent.hasExtra("click")) {
+			} else if (intent.hasExtra("click")) {
 				click(intent.getIntExtra("x", 0), intent.getIntExtra("y", 0));
+			} else if (intent.hasExtra("type")) {
+				type(intent.getStringExtra("type"));
 			}
 		});
 	}
@@ -170,5 +172,12 @@ public class AccessibilityAPI {
 
 	private static String getCharSequenceAsString(CharSequence charSequence) {
 		return charSequence != null ? charSequence.toString() : "";
+	}
+
+	private static void type(String toType) {
+		AccessibilityNodeInfo focusedNode = TermuxAccessibilityService.instance.getRootInActiveWindow().findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+        Bundle arguments = new Bundle();
+        arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, toType);
+        focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
 	}
 }
