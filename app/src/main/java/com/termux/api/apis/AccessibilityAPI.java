@@ -124,6 +124,11 @@ public class AccessibilityAPI {
 	private static void dumpNodeAuxiliary(Document document, Element element, AccessibilityNodeInfo node) {
 		for (int i = 0; i < node.getChildCount(); i++) {
 			AccessibilityNodeInfo nodeChild = node.getChild(i);
+			// May be faced randomly, see [Benjamin-Loison/android/issues/28#issuecomment-3975714760](https://github.com/Benjamin-Loison/android/issues/28#issuecomment-3975714760)
+			if (nodeChild == null)
+			{
+				continue;
+			}
 			Element elementChild = document.createElement("node");
 			
 			elementChild.setAttribute("index", String.valueOf(i));
