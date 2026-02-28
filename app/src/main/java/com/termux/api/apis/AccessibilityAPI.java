@@ -196,6 +196,6 @@ public class AccessibilityAPI {
     }
 
     private static void performGlobalAction(String globalAction) throws NoSuchFieldException, IllegalAccessException {
-        TermuxAccessibilityService.instance.performGlobalAction((int)AccessibilityService.class.getDeclaredField("GLOBAL_ACTION_" + globalAction).get(null));
+        TermuxAccessibilityService.instance.performGlobalAction((int)AccessibilityService.class.getDeclaredField("GLOBAL_ACTION_" + globalAction.toUpperCase()).get(null));
     }
 }
