@@ -116,6 +116,8 @@ public class AccessibilityAPI {
         Transformer transformer = transformerFactory.newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
         transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        // Necessary to not have surrogate pairs for emojis, see [Benjamin_Loison/Voice_assistant/issues/83#issue-3661619](https://codeberg.org/Benjamin_Loison/Voice_assistant/issues/83#issue-3661619)
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-16");
         DOMSource source = new DOMSource(document);
 
         StringWriter sw = new StringWriter();
