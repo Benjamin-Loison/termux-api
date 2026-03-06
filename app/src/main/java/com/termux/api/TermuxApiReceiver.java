@@ -89,6 +89,7 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 AccessibilityAPI.onReceive(this, context, intent);
                 break;
             case "AudioInfo":
+            case "Audio":
                 AudioAPI.onReceive(this, context, intent);
                 break;
             case "BatteryStatus":
