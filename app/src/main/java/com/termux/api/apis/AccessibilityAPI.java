@@ -104,7 +104,7 @@ public class AccessibilityAPI {
         document.appendChild(root);
 
         AccessibilityNodeInfo node = TermuxAccessibilityService.instance.getRootInActiveWindow();
-        // Randomly faced [Benjamin_Loison/Voice_assistant/issues/84#issue-3661682](https://codeberg.org/Benjamin_Loison/Voice_assistant/issues/84#issue-3661682)
+        // On Signal *App permissions* for instance
         if (node == null) {
             return "";
         }
