@@ -29,8 +29,6 @@ import java.io.StringWriter;
 
 import android.graphics.Rect;
 
-import android.content.ContentResolver;
-
 import android.provider.Settings;
 
 import android.view.accessibility.AccessibilityManager;
@@ -39,6 +37,16 @@ import android.content.pm.ServiceInfo;
 import java.util.List;
 import android.accessibilityservice.AccessibilityService;
 import android.os.Bundle;
+
+import android.view.Display;
+import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback;
+import android.accessibilityservice.AccessibilityService.ScreenshotResult;
+import android.hardware.HardwareBuffer;
+import android.graphics.ColorSpace;
+import android.graphics.Bitmap;
+import java.io.OutputStream;
+import java.io.IOException;
+import java.lang.reflect.Field;
 
 public class AccessibilityAPI {
 
@@ -54,19 +62,26 @@ public class AccessibilityAPI {
             context.startActivity(accessibilityIntent);
         }
 
-        ResultReturner.returnData(apiReceiver, intent, out -> {
-            final ContentResolver contentResolver = context.getContentResolver();
-            if (intent.hasExtra("dump")) {
-                out.print(dump());
-            } else if (intent.hasExtra("click")) {
-                click(intent.getIntExtra("x", 0), intent.getIntExtra("y", 0), intent.getIntExtra("duration", 1));
-            } else if (intent.hasExtra("type")) {
-                type(intent.getStringExtra("type"));
-            } else if (intent.hasExtra("global-action")) {
-                performGlobalAction(intent.getStringExtra("global-action"));
-            }
-        });
+		if (intent.hasExtra("dump")) {
+			dump(apiReceiver, intent);
+		} else if (intent.hasExtra("click")) {
+			click(intent.getIntExtra("x", 0), intent.getIntExtra("y", 0), intent.getIntExtra("duration", 1));
+			returnEmptyString(apiReceiver, intent);
+		} else if (intent.hasExtra("type")) {
+			type(intent.getStringExtra("type"));
+			returnEmptyString(apiReceiver, intent);
+		} else if (intent.hasExtra("global-action")) {
+			performGlobalAction(intent.getStringExtra("global-action"));
+			returnEmptyString(apiReceiver, intent);
+		} else if (intent.hasExtra("screenshot")) {
+			screenshot(apiReceiver, context, intent);
+		}
     }
+
+	// Necessary for void functions not to hang.
+	private static void returnEmptyString(TermuxApiReceiver apiReceiver, Intent intent) {
+		ResultReturner.returnData(apiReceiver, intent, out -> {});
+	}
 
     // [The Stack Overflow answer 14923144](https://stackoverflow.com/a/14923144)
     public static boolean isAccessibilityServiceEnabled(Context context, Class<? extends AccessibilityService> service) {
@@ -91,10 +106,30 @@ public class AccessibilityAPI {
     }
 
     // The aim of this function is to give a compatible output with `adb` `uiautomator dump`.
-    private static String dump() throws TransformerException, ParserConfigurationException {
-        // Create a DocumentBuilder
+    private static void dump(TermuxApiReceiver apiReceiver, Intent intent) {
+        AccessibilityNodeInfo node = TermuxAccessibilityService.instance.getRootInActiveWindow();
+        // On Signal *App permissions* for instance
+        if (node == null) {
+			ResultReturner.returnData(apiReceiver, intent, out -> {});
+            return;
+        }
+
+		String swString = dumpAuxiliary(node);
+
+		ResultReturner.returnData(apiReceiver, intent, out -> {
+			out.write(swString);
+		});
+    }
+
+	private static String dumpAuxiliary(AccessibilityNodeInfo node) {
+		// Create a DocumentBuilder
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
+        DocumentBuilder builder = null;
+        try {
+            builder = factory.newDocumentBuilder();
+        } catch (ParserConfigurationException parserConfigurationException) {
+            Logger.logDebug(LOG_TAG, "ParserConfigurationException");
+        }
 
         // Create a new Document
         Document document = builder.newDocument();
@@ -103,17 +138,16 @@ public class AccessibilityAPI {
         Element root = document.createElement("hierarchy");
         document.appendChild(root);
 
-        AccessibilityNodeInfo node = TermuxAccessibilityService.instance.getRootInActiveWindow();
-        // On Signal *App permissions* for instance
-        if (node == null) {
-            return "";
-        }
-
         dumpNodeAuxiliary(document, root, node);
 
         // Write as XML
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
-        Transformer transformer = transformerFactory.newTransformer();
+        Transformer transformer = null;
+        try {
+            transformer = transformerFactory.newTransformer();
+        } catch (TransformerException transformerException) {
+            Logger.logDebug(LOG_TAG, "TransformerException transformerFactory.newTransformer");
+        }
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
         transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
         // Necessary to not have surrogate pairs for emojis, see [Benjamin_Loison/Voice_assistant/issues/83#issue-3661619](https://codeberg.org/Benjamin_Loison/Voice_assistant/issues/83#issue-3661619)
@@ -122,10 +156,13 @@ public class AccessibilityAPI {
 
         StringWriter sw = new StringWriter();
         StreamResult result = new StreamResult(sw);
-        transformer.transform(source, result);
-
-        return sw.toString();
-    }
+        try {
+            transformer.transform(source, result);
+        } catch (TransformerException transformerException) {
+            Logger.logDebug(LOG_TAG, "TransformerException transformer.transform");
+        }
+		return sw.toString();
+	}
 
     private static void dumpNodeAuxiliary(Document document, Element element, AccessibilityNodeInfo node) {
         for (int i = 0; i < node.getChildCount(); i++) {
@@ -194,7 +231,52 @@ public class AccessibilityAPI {
         focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
     }
 
-    private static void performGlobalAction(String globalAction) throws NoSuchFieldException, IllegalAccessException {
-        TermuxAccessibilityService.instance.performGlobalAction((int)AccessibilityService.class.getDeclaredField("GLOBAL_ACTION_" + globalAction.toUpperCase()).get(null));
+    private static void performGlobalAction(String globalActionString) {
+		String fieldName = "GLOBAL_ACTION_" + globalActionString.toUpperCase();
+		Field field = null;
+		try {
+			field = AccessibilityService.class.getDeclaredField(fieldName);
+		} catch (NoSuchFieldException noSuchFieldException) {
+			Logger.logDebug(LOG_TAG, "NoSuchFieldException");
+		}
+		Object globalActionObject = null;
+		try {
+			globalActionObject = field.get(null);
+		} catch(IllegalAccessException illegalAccessException) {
+			Logger.logDebug(LOG_TAG, "IllegalAccessException");
+		}
+		int globalActionInt = (int)globalActionObject;
+        TermuxAccessibilityService.instance.performGlobalAction(globalActionInt);
     }
+
+	private static void screenshot(TermuxApiReceiver apiReceiver, final Context context, Intent intent) {
+		TermuxAccessibilityService.instance.takeScreenshot(
+            Display.DEFAULT_DISPLAY,
+            context.getMainExecutor(),
+            new TakeScreenshotCallback() {
+
+                @Override
+                public void onSuccess(ScreenshotResult screenshotResult) {
+                    Logger.logDebug(LOG_TAG, "onSuccess");
+                    HardwareBuffer buffer = screenshotResult.getHardwareBuffer();
+                    ColorSpace colorSpace = screenshotResult.getColorSpace();
+
+                    Bitmap bitmap = Bitmap.wrapHardwareBuffer(buffer, colorSpace);
+
+                    ResultReturner.returnData(apiReceiver, intent, new ResultReturner.BinaryOutput()
+                    {
+                        @Override
+                        public void writeResult(OutputStream out) throws IOException {
+                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+                        }
+                    });
+                }
+
+                @Override
+                public void onFailure(int errorCode) {
+                    Logger.logDebug(LOG_TAG, "onFailure: " + errorCode);
+                }
+            }
+        );
+	}
 }
