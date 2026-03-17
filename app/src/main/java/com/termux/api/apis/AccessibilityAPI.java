@@ -181,7 +181,7 @@ public class AccessibilityAPI {
             String nodeChildViewIdResourceName = nodeChild.getViewIdResourceName();
             elementChild.setAttribute("resource-id", nodeChildViewIdResourceName != null ? nodeChildViewIdResourceName : "");
 
-            elementChild.setAttribute("class", nodeChild.getClassName().toString());
+            elementChild.setAttribute("class", getCharSequenceAsString(nodeChild.getClassName()));
 
             elementChild.setAttribute("package", nodeChild.getPackageName().toString());
 
