@@ -2,6 +2,6 @@
 <accessibility-service
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	android:canRetrieveWindowContent="true"
-	android:accessibilityFlags="flagReportViewIds|flagIncludeNotImportantViews"
+	android:accessibilityFlags="flagReportViewIds|flagIncludeNotImportantViews|flagRetrieveInteractiveWindows"
 	android:canPerformGestures="true"
 	android:canTakeScreenshot="true"/>

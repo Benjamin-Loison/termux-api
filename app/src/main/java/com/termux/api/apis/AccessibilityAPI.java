@@ -36,6 +36,9 @@ import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.pm.ServiceInfo;
 import java.util.List;
 import android.accessibilityservice.AccessibilityService;
+import android.view.accessibility.AccessibilityWindowInfo;
+import android.util.SparseArray;
+
 import android.os.Bundle;
 
 import android.view.Display;
@@ -62,10 +65,12 @@ public class AccessibilityAPI {
             context.startActivity(accessibilityIntent);
         }
 
+		int displayId = intent.getIntExtra("display-id", Display.DEFAULT_DISPLAY);
+
 		if (intent.hasExtra("dump")) {
-			dump(apiReceiver, intent);
+			dump(apiReceiver, intent, displayId);
 		} else if (intent.hasExtra("click")) {
-			click(intent.getIntExtra("x", 0), intent.getIntExtra("y", 0), intent.getIntExtra("duration", 1));
+			click(intent.getIntExtra("x", 0), intent.getIntExtra("y", 0), intent.getIntExtra("duration", 1), displayId);
 			returnEmptyString(apiReceiver, intent);
 		} else if (intent.hasExtra("type")) {
 			type(intent.getStringExtra("type"));
@@ -74,7 +79,7 @@ public class AccessibilityAPI {
 			performGlobalAction(intent.getStringExtra("global-action"));
 			returnEmptyString(apiReceiver, intent);
 		} else if (intent.hasExtra("screenshot")) {
-			screenshot(apiReceiver, context, intent);
+			screenshot(apiReceiver, context, intent, displayId);
 		}
     }
 
@@ -97,18 +102,21 @@ public class AccessibilityAPI {
         return false;
     }
 
-    private static void click(int x, int y, int millisecondsDuration) {
+    private static void click(int x, int y, int millisecondsDuration, int displayId) {
         Path swipePath = new Path();
         swipePath.moveTo(x, y);
         GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
+		gestureBuilder.setDisplayId(displayId);
         gestureBuilder.addStroke(new GestureDescription.StrokeDescription(swipePath, 0, millisecondsDuration));
         TermuxAccessibilityService.instance.dispatchGesture(gestureBuilder.build(), null, null);
     }
 
     // The aim of this function is to give a compatible output with `adb` `uiautomator dump`.
-    private static void dump(TermuxApiReceiver apiReceiver, Intent intent) {
-        AccessibilityNodeInfo node = TermuxAccessibilityService.instance.getRootInActiveWindow();
-        // On Signal *App permissions* for instance
+    private static void dump(TermuxApiReceiver apiReceiver, Intent intent, int displayId) {
+        SparseArray<List<AccessibilityWindowInfo>> windowsOnAllDisplays = TermuxAccessibilityService.instance.getWindowsOnAllDisplays();
+		List<AccessibilityWindowInfo> windowsOnDisplay = windowsOnAllDisplays.get(displayId);
+        AccessibilityNodeInfo node = windowsOnDisplay.getLast().getRoot();
+		// On Signal *App permissions* for instance
         if (node == null) {
 			ResultReturner.returnData(apiReceiver, intent, out -> {});
             return;
@@ -225,10 +233,22 @@ public class AccessibilityAPI {
     }
 
     private static void type(String toType) {
-        AccessibilityNodeInfo focusedNode = TermuxAccessibilityService.instance.getRootInActiveWindow().findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
-        Bundle arguments = new Bundle();
-        arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, toType);
-        focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+		SparseArray<List<AccessibilityWindowInfo>> windowsOnAllDisplays = TermuxAccessibilityService.instance.getWindowsOnAllDisplays();
+		for(int windowsOnAllDisplayIndex = 0; windowsOnAllDisplayIndex < windowsOnAllDisplays.size(); windowsOnAllDisplayIndex++)
+        {
+            List<AccessibilityWindowInfo> windowsOnAllDisplay = windowsOnAllDisplays.valueAt(windowsOnAllDisplayIndex);
+            for(AccessibilityWindowInfo accessibilityWindowInfo : windowsOnAllDisplay)
+			{
+				AccessibilityNodeInfo focusedNode = accessibilityWindowInfo.getRoot().findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+				if(focusedNode != null)
+				{
+					Bundle arguments = new Bundle();
+					arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, toType);
+					focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+					return;
+				}
+			}
+		}
     }
 
     private static void performGlobalAction(String globalActionString) {
@@ -249,9 +269,9 @@ public class AccessibilityAPI {
         TermuxAccessibilityService.instance.performGlobalAction(globalActionInt);
     }
 
-	private static void screenshot(TermuxApiReceiver apiReceiver, final Context context, Intent intent) {
+	private static void screenshot(TermuxApiReceiver apiReceiver, final Context context, Intent intent, int displayId) {
 		TermuxAccessibilityService.instance.takeScreenshot(
-            Display.DEFAULT_DISPLAY,
+            displayId,
             context.getMainExecutor(),
             new TakeScreenshotCallback() {
 
