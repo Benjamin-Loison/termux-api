@@ -51,6 +51,11 @@ import java.io.OutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 
+import android.hardware.display.DisplayManager;
+import android.util.JsonWriter;
+import com.termux.api.util.ResultReturner.ResultJsonWriter;
+import android.graphics.Point;
+
 public class AccessibilityAPI {
 
     private static final String LOG_TAG = "AccessibilityAPI";
@@ -80,6 +85,27 @@ public class AccessibilityAPI {
 			returnEmptyString(apiReceiver, intent);
 		} else if (intent.hasExtra("screenshot")) {
 			screenshot(apiReceiver, context, intent, displayId);
+		} else if (intent.hasExtra("list-displays")) {
+			ResultReturner.returnData(apiReceiver, intent, new ResultJsonWriter() {
+				@Override
+				public void writeJson(final JsonWriter out) throws Exception {
+					out.beginArray();
+					DisplayManager displayManager = (DisplayManager)context.getSystemService(Context.DISPLAY_SERVICE);
+					for(Display display : displayManager.getDisplays()) {
+						out.beginObject();
+						out.name("id").value(display.getDisplayId());
+						out.name("name").value(display.getName());
+						out.name("refresh_rate").value(display.getRefreshRate());
+						out.name("flags").value(display.getFlags());
+						Point size = new Point();
+						display.getSize(size);
+						out.name("height").value(size.y);
+						out.name("width").value(size.x);
+						out.endObject();
+					}
+					out.endArray();
+				}
+			});
 		}
     }
 
