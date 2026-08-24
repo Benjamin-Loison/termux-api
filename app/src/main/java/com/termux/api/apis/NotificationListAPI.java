@@ -27,6 +27,8 @@ import java.util.Set;
 import java.io.FileWriter;
 import com.termux.shared.termux.TermuxConstants;
 
+import android.app.NotificationChannel;
+
 public class NotificationListAPI {
 
     private static final String LOG_TAG = "NotificationListAPI";
@@ -72,12 +74,12 @@ public class NotificationListAPI {
 
         out.beginArray();
         for (StatusBarNotification n : notifications) {
-			writeStatusBarNotification(n, out);
+			writeStatusBarNotification(n, null, out);
         }
         out.endArray();
     }
 
-	static void writeStatusBarNotification(StatusBarNotification n, JsonWriter out) throws Exception {
+	static void writeStatusBarNotification(StatusBarNotification n, NotificationListenerService.RankingMap rankingMap, JsonWriter out) throws Exception {
 		int id = n.getId();
 		String key = "";
 		String title = "";
@@ -121,6 +123,14 @@ public class NotificationListAPI {
 				.name("title").value(title)
 				.name("content").value(text)
 				.name("when").value(when);
+		if (rankingMap != null) {
+			NotificationListenerService.Ranking ranking = new NotificationListenerService.Ranking();
+			rankingMap.getRanking(key, ranking);
+			NotificationChannel notificationChannel = ranking.getChannel();
+			out.name("channelName").value(notificationChannel.getName().toString());
+			out.name("channelDescription").value(notificationChannel.getDescription());
+			out.name("channelGroup").value(notificationChannel.getGroup());
+		}
 		if (lines != null) {
 			out.name("lines").beginArray();
 			for (CharSequence line : lines) {
@@ -213,14 +223,14 @@ public class NotificationListAPI {
         }
 
 		@Override
-        public void onNotificationPosted(StatusBarNotification statusBarNotification) {
+        public void onNotificationPosted(StatusBarNotification statusBarNotification, NotificationListenerService.RankingMap rankingMap) {
 			Logger.logDebug(LOG_TAG, "onNotificationPosted");
 			if (listening) {
 				Logger.logDebug(LOG_TAG, "onNotificationPosted listening");
 				StringWriter stringWriter = new StringWriter();
 				JsonWriter jsonWriter = new JsonWriter(stringWriter);
 				try {
-					writeStatusBarNotification(statusBarNotification, jsonWriter);
+					writeStatusBarNotification(statusBarNotification, rankingMap, jsonWriter);
 					FileWriter fileWriter = new FileWriter("/data/data/" + TermuxConstants.TERMUX_PACKAGE_NAME + "/files/home/termux-notification-list_listen.json");
 					fileWriter.write(stringWriter.toString() + "\n");
 					fileWriter.close();
