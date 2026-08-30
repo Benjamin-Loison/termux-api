@@ -142,6 +142,11 @@ public class AccessibilityAPI {
     private static void dump(TermuxApiReceiver apiReceiver, Intent intent, int displayId) {
         SparseArray<List<AccessibilityWindowInfo>> windowsOnAllDisplays = TermuxAccessibilityService.instance.getWindowsOnAllDisplays();
 		List<AccessibilityWindowInfo> windowsOnDisplay = windowsOnAllDisplays.get(displayId);
+		// https://codeberg.org/Benjamin_Loison/Voice_assistant/issues/114#issuecomment-22027078 shows such an occurrence
+		if (windowsOnDisplay == null) {
+			ResultReturner.returnData(apiReceiver, intent, out -> {});
+            return;
+		}
         AccessibilityNodeInfo node = windowsOnDisplay.getLast().getRoot();
 		// On Signal *App permissions* for instance
         if (node == null) {
