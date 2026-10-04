@@ -147,7 +147,8 @@ public class AccessibilityAPI {
 			ResultReturner.returnData(apiReceiver, intent, out -> {});
             return;
 		}
-        AccessibilityNodeInfo node = windowsOnDisplay.getLast().getRoot();
+        int windowId = intent.getIntExtra("window-id", windowsOnDisplay.size() - 1);
+        AccessibilityNodeInfo node = windowsOnDisplay.get(windowId).getRoot();
 		// On Signal *App permissions* for instance
         if (node == null) {
 			ResultReturner.returnData(apiReceiver, intent, out -> {});
