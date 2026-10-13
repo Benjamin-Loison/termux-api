@@ -30,6 +30,7 @@ import com.termux.api.apis.MicRecorderAPI;
 import com.termux.api.apis.NfcAPI;
 import com.termux.api.apis.NotificationAPI;
 import com.termux.api.apis.NotificationListAPI;
+import com.termux.api.apis.NotificationSendIntentAPI;
 import com.termux.api.apis.SAFAPI;
 import com.termux.api.apis.SensorAPI;
 import com.termux.api.apis.SettingAPI;
@@ -174,6 +175,7 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                 NfcAPI.onReceive(context, intent);
                 break;
             case "NotificationList":
+            case "NotificationSendIntent":
                 ComponentName cn = new ComponentName(context, NotificationListAPI.NotificationService.class);
                 String flat = Settings.Secure.getString(context.getContentResolver(), "enabled_notification_listeners");
                 final boolean NotificationServiceEnabled = flat != null && flat.contains(cn.flattenToString());
@@ -181,7 +183,11 @@ public class TermuxApiReceiver extends BroadcastReceiver {
                     Toast.makeText(context,"Please give Termux:API Notification Access", Toast.LENGTH_LONG).show();
                     context.startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 } else {
-                    NotificationListAPI.onReceive(this, context, intent);
+                    if (apiMethod.equals("NotificationList")) {
+                        NotificationListAPI.onReceive(this, context, intent);
+                    } else {
+                        NotificationSendIntentAPI.onReceive(this, context, intent);
+                    }
                 }
                 break;
             case "Notification":
