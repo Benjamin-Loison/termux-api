@@ -189,6 +189,9 @@
                 android:resource="@xml/accessibility_service_config"/>
         </service>
 
+		<service android:name=".apis.AccessibilityAPI$GetStringService"
+            android:exported="false" />
+
         <service
             android:name=".apis.JobSchedulerAPI$JobSchedulerService"
             android:permission="android.permission.BIND_JOB_SERVICE"

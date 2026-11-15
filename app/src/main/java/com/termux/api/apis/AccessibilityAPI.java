@@ -64,6 +64,10 @@ import java.util.Locale;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
+import android.app.Service;
+import com.termux.shared.data.IntentUtils;
+import android.os.IBinder;
+
 public class AccessibilityAPI {
 
     private static final String LOG_TAG = "AccessibilityAPI";
@@ -116,10 +120,20 @@ public class AccessibilityAPI {
 				}
 			});
         } else if (intent.hasExtra("get-string")) {
-            ResultReturner.returnData(apiReceiver, intent, new ResultReturner.WithInput() {
+			context.startService(new Intent(context, GetStringService.class).putExtras(intent.getExtras()));
+        }
+    }
+
+    public static class GetStringService extends Service {
+		@Override
+        public int onStartCommand(final Intent intent, int flags, final int startId) {
+			final Context context = this;
+            Logger.logDebug(LOG_TAG, "onHandleIntent:\n" + IntentUtils.getIntentString(intent));
+
+            ResultReturner.returnData(this, intent, new ResultReturner.WithInput() {
                 @Override
                 public void writeResult(PrintWriter out) {
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+					try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
                         String line;
                         while ((line = reader.readLine()) != null) {
                             if (!line.isEmpty()) {
@@ -146,8 +160,12 @@ public class AccessibilityAPI {
                     } catch(IOException e) {}
                 }
             });
+			return Service.START_NOT_STICKY;
         }
-    }
+
+		@Override
+        public IBinder onBind(Intent intent) { return null; }
+	}
 
 	// Necessary for void functions not to hang.
 	private static void returnEmptyString(TermuxApiReceiver apiReceiver, Intent intent) {
