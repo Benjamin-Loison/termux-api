@@ -56,6 +56,14 @@ import android.util.JsonWriter;
 import com.termux.api.util.ResultReturner.ResultJsonWriter;
 import android.graphics.Point;
 
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.content.res.Resources;
+import java.util.Locale;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
 public class AccessibilityAPI {
 
     private static final String LOG_TAG = "AccessibilityAPI";
@@ -107,7 +115,38 @@ public class AccessibilityAPI {
 					out.endArray();
 				}
 			});
-		}
+        } else if (intent.hasExtra("get-string")) {
+            ResultReturner.returnData(apiReceiver, intent, new ResultReturner.WithInput() {
+                @Override
+                public void writeResult(PrintWriter out) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            if (!line.isEmpty()) {
+                                String[] lineParts = line.split(" ");
+                                String appId = lineParts[0];
+                                String locale = lineParts[1];
+                                String identifier = lineParts[2];
+                                try {
+                                    Resources res = context.getPackageManager().getResourcesForApplication(appId);
+
+                                    Configuration cfg = new Configuration(res.getConfiguration());
+                                    cfg.setLocale(new Locale(locale));
+
+                                    res.updateConfiguration(cfg, res.getDisplayMetrics());
+
+                                    int id = res.getIdentifier(identifier, "string", appId);
+                                    String text = res.getString(id);
+
+                                    out.write(text);
+                                    out.flush();
+                                } catch (PackageManager.NameNotFoundException e) {}
+                            }
+                        }
+                    } catch(IOException e) {}
+                }
+            });
+        }
     }
 
 	// Necessary for void functions not to hang.
